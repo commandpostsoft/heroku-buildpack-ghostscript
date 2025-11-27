@@ -1,24 +1,18 @@
 #!/usr/bin/env bash
 # bin/compile <build-dir> <cache-dir>
 
-echo "-----> Installing Ghostscript 9.10"
+echo "-----> Installing Ghostscript 10.06.0"
 
 BUILD_DIR=$1
-PACKAGE="http://downloads.ghostscript.com/public/ghostscript-9.05.tar.gz"
+PACKAGE="https://github.com/commandpostsoft/heroku-buildpack-ghostscript/releases/download/v10.06.0/ghostscript-10.06.0-linux-x86_64.tgz"
+BINARY="ghostscript-10.06.0-linux-x86_64/gs"
+LOCATION="$BUILD_DIR/vendor/gs/bin"
 
 mkdir -p $LOCATION
-curl -O $PACKAGE -s
+curl $PACKAGE -L -s -o - | tar xzf - -C $LOCATION
+mv $LOCATION/$BINARY $LOCATION/gs
 
 echo "-----> Building runtime environment for Ghostscript"
 
-tar xzvf ghostscript-9.05.tar.gz
-cd ghostscript-9.05
-./configure --disable-cups --disable-gtk --with-drivers=FILES
-make
-cp bin/gs ~/bin
-
-echo "Ghostscript version:"
-echo gs --version
-
-cd ~
-rm -rf ghostscript-9.05*
+mkdir -p $BUILD_DIR/.profile.d
+echo "export PATH=\"\$HOME/vendor/gs/bin:\$PATH\"" > $BUILD_DIR/.profile.d/ghostscript.sh

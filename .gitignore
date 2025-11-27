@@ -1,0 +1,6 @@
+# Build artifacts
+build/workspace/
+build/output/
+
+# OS files
+.DS_Store
