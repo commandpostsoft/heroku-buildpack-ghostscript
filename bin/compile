@@ -1,18 +1,28 @@
 #!/usr/bin/env bash
-# bin/compile <build-dir> <cache-dir>
+# bin/compile <build-dir> <cache-dir> <env-dir>
+set -euo pipefail
 
-echo "-----> Installing Ghostscript 10.06.0"
+VERSION="10.07.1"
+STACK="${STACK:-heroku-26}"
 
-BUILD_DIR=$1
-PACKAGE="https://github.com/commandpostsoft/heroku-buildpack-ghostscript/releases/download/v10.06.0/ghostscript-10.06.0-linux-x86_64.tgz"
-BINARY="ghostscript-10.06.0-linux-x86_64/gs"
+BUILD_DIR="$1"
+PKG_NAME="ghostscript-${VERSION}-${STACK}-linux-x86_64"
+PACKAGE="https://github.com/commandpostsoft/heroku-buildpack-ghostscript/releases/download/v10.07.1/${PKG_NAME}.tgz"
 LOCATION="$BUILD_DIR/vendor/gs/bin"
 
-mkdir -p $LOCATION
-curl $PACKAGE -L -s -o - | tar xzf - -C $LOCATION
-mv $LOCATION/$BINARY $LOCATION/gs
+echo "-----> Installing Ghostscript $VERSION ($STACK)"
+
+mkdir -p "$LOCATION"
+if ! curl --fail -L -s "$PACKAGE" | tar xzf - -C "$LOCATION"; then
+    echo " !     No Ghostscript $VERSION binary available for stack: $STACK"
+    echo " !     Tried: $PACKAGE"
+    echo " !     See https://github.com/commandpostsoft/heroku-buildpack-ghostscript/releases/tag/v10.07.1 for available stacks."
+    exit 1
+fi
+
+mv "$LOCATION/$PKG_NAME/gs" "$LOCATION/gs"
+rmdir "$LOCATION/$PKG_NAME"
 
 echo "-----> Building runtime environment for Ghostscript"
-
-mkdir -p $BUILD_DIR/.profile.d
-echo "export PATH=\"\$HOME/vendor/gs/bin:\$PATH\"" > $BUILD_DIR/.profile.d/ghostscript.sh
+mkdir -p "$BUILD_DIR/.profile.d"
+echo "export PATH=\"\$HOME/vendor/gs/bin:\$PATH\"" > "$BUILD_DIR/.profile.d/ghostscript.sh"

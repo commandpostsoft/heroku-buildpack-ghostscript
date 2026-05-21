@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # bin/detect <build-dir>
 
-echo "Ghostscript 9.10"
+echo "Ghostscript 10.07.1"
 exit 0
 

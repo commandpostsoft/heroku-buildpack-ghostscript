@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Release Ghostscript - all-in-one script
-# Checks if release exists, builds if needed, updates bin/compile
-# Usage: ./release.sh [VERSION]
+# Release Ghostscript for a Heroku stack - all-in-one
+# Checks if the stack-specific asset exists; builds + uploads if not; pins bin/compile
+# Usage: ./release.sh [VERSION] [STACK]
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -21,36 +21,41 @@ get_latest_version() {
         sed 's/\.$/\.0/'
 }
 
-# Check if release exists
-release_exists() {
+# Check if a stack-specific asset exists on the release
+asset_exists() {
     local version="$1"
+    local stack="$2"
     local tag="v$version"
-    gh release view "$tag" --repo "$GITHUB_REPO" &>/dev/null
+    local pkg_name="ghostscript-${version}-${stack}-linux-x86_64.tgz"
+
+    gh release view "$tag" --repo "$GITHUB_REPO" --json assets \
+        -q ".assets[] | select(.name == \"$pkg_name\") | .name" 2>/dev/null | \
+        grep -q "$pkg_name"
 }
 
 main() {
     local version="${1:-latest}"
+    local stack="${2:-heroku-26}"
 
     if [[ "$version" == "-h" || "$version" == "--help" ]]; then
-        echo "Usage: $0 [VERSION]"
+        echo "Usage: $0 [VERSION] [STACK]"
         echo ""
-        echo "Build/release Ghostscript for Heroku"
+        echo "Build/release Ghostscript for a Heroku stack"
         echo ""
         echo "Arguments:"
-        echo "  VERSION    Ghostscript version (e.g., 10.06.0) or 'latest' (default)"
+        echo "  VERSION    Ghostscript version (e.g., 10.07.1) or 'latest' (default)"
+        echo "  STACK      Heroku stack: heroku-22, heroku-24, heroku-26 (default: heroku-26)"
         echo ""
-        echo "If a release already exists, just updates bin/compile."
-        echo "If not, builds from source, uploads, then updates."
+        echo "If the stack-specific asset already exists on the v\$VERSION release,"
+        echo "the build step is skipped and bin/compile is just re-pinned."
         exit 0
     fi
 
-    # Check dependencies
     if ! command -v gh &>/dev/null; then
         echo "Error: GitHub CLI (gh) is required. Install with: brew install gh"
         exit 1
     fi
 
-    # Get version
     if [[ "$version" == "latest" ]]; then
         echo "Fetching latest Ghostscript version..."
         version=$(get_latest_version)
@@ -58,17 +63,16 @@ main() {
 
     echo "=========================================="
     echo "Ghostscript Version: $version"
-    echo "GitHub Repo: $GITHUB_REPO"
+    echo "Heroku Stack:        $stack"
+    echo "GitHub Repo:         $GITHUB_REPO"
     echo "=========================================="
     echo ""
 
-    # Check if release exists
-    if release_exists "$version"; then
-        echo "Release v$version already exists - using existing binary"
+    if asset_exists "$version" "$stack"; then
+        echo "Asset for $stack already exists on v$version - skipping build"
         echo ""
-        "$SCRIPT_DIR/update.sh" "$version"
     else
-        echo "Release v$version not found - building from source"
+        echo "Asset for $stack not found on v$version - building from source"
         echo ""
 
         if ! command -v docker &>/dev/null; then
@@ -76,10 +80,11 @@ main() {
             exit 1
         fi
 
-        "$SCRIPT_DIR/build.sh" "$version"
-        "$SCRIPT_DIR/upload.sh" "$version"
-        "$SCRIPT_DIR/update.sh" "$version"
+        "$SCRIPT_DIR/build.sh" "$version" "$stack"
+        "$SCRIPT_DIR/upload.sh" "$version" "$stack"
     fi
+
+    "$SCRIPT_DIR/update.sh" "$version"
 
     echo ""
     echo "Done! Don't forget to commit and push your changes."
