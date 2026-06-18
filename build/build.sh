@@ -102,7 +102,9 @@ package_binary() {
     cp "$OUTPUT_DIR/gs" "$pkg_dir/"
 
     cd "$OUTPUT_DIR"
-    tar czf "${pkg_name}.tgz" "$pkg_name"
+    # Disable AppleDouble files and macOS extended attributes so GNU tar on the
+    # Heroku dyno doesn't leave xattr artifacts in the extracted directory.
+    COPYFILE_DISABLE=1 tar --no-xattrs --no-mac-metadata -czf "${pkg_name}.tgz" "$pkg_name"
 
     echo ""
     echo "=========================================="

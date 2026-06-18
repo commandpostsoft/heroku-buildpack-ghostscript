@@ -21,7 +21,9 @@ if ! curl --fail -L -s "$PACKAGE" | tar xzf - -C "$LOCATION"; then
 fi
 
 mv "$LOCATION/$PKG_NAME/gs" "$LOCATION/gs"
-rmdir "$LOCATION/$PKG_NAME"
+# Use rm -rf rather than rmdir: macOS-built tarballs can leave extended-attribute
+# (pax/AppleDouble) artifacts in the extracted dir, which would make rmdir fail.
+rm -rf "$LOCATION/$PKG_NAME"
 
 echo "-----> Building runtime environment for Ghostscript"
 mkdir -p "$BUILD_DIR/.profile.d"
